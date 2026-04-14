@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>🏙️ BH City - 商業模擬 3.2 (完整擴充版)</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; touch-action: manipulation; }
+        body {
+            margin: 0; min-height: 100vh;
+            background: linear-gradient(145deg, #0a2f2a 0%, #0b3b3a 100%);
+            font-family: 'Segoe UI', 'Poppins', 'Noto Sans HK', sans-serif;
+            color: #f0f3f0; padding: 12px;
+        }
+        .game-container {
+            max-width: 550px; margin: 0 auto;
+            background: rgba(10, 35, 30, 0.9);
+            backdrop-filter: blur(5px); border-radius: 30px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.5);
+            overflow: hidden; padding: 16px;
+            border: 1px solid #ffd96666;
+        }
+
+        #startOverlay {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.9); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; text-align: center;
+        }
+
+        .status-bar {
+            display: flex; flex-wrap: wrap; justify-content: space-between;
+            background: #02221e; padding: 12px; border-radius: 20px;
+            margin-bottom: 15px; gap: 8px; font-weight: bold; border: 1px solid #333;
+        }
+        .stat { background: #f2b80715; padding: 6px 12px; border-radius: 12px; font-size: 0.85rem; }
+        .stat span { color: #ffd966; }
+
+        .news-ticker {
+            background: #02100e; border-radius: 10px; padding: 8px;
+            margin-bottom: 15px; border: 1px solid #f3b33d; overflow: hidden; white-space: nowrap;
+        }
+        .ticker-content { display: inline-block; animation: scrollNews 20s linear infinite; color: #ffeaac; font-size: 0.85rem; }
+        @keyframes scrollNews { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+        .map-buttons { display: flex; gap: 8px; margin-bottom: 15px; }
+        .map-btn {
+            flex: 1; background: #1a4d46; padding: 10px 5px; text-align: center;
+            border-radius: 12px; font-weight: bold; font-size: 0.8rem;
+            color: #ffeaac; cursor: pointer; transition: 0.2s; border: 1px solid #2a5d56;
+        }
+        .active-region { background: #f2b807 !important; color: #082b25 !important; box-shadow: 0 0 10px #f2b807; }
+
+        .panel {
+            background: #05221e; border-radius: 20px; padding: 18px;
+            margin-bottom: 15px; border: 1px solid #e7b42c44; min-height: 380px;
+        }
+        
+        .biz-card {
+            background: #0f3d38; border-radius: 15px; padding: 15px; margin: 10px 0;
+            border: 1px solid #ffd96644; cursor: pointer; transition: 0.2s;
+        }
+        .biz-card:hover { border-color: #f2b807; }
+
+        .startup-box {
+            background: rgba(242, 184, 7, 0.1); border: 1px dashed #f2b807;
+            padding: 15px; border-radius: 15px; text-align: center; margin-top: 20px;
+        }
+
+        button {
+            background: #f2b807; border: none; padding: 10px 18px;
+            border-radius: 10px; font-weight: bold; color: #00201c;
+            cursor: pointer; box-shadow: 0 3px 0 #a05f15; margin: 5px 2px;
+        }
+        button:active { transform: translateY(2px); box-shadow: 0 1px 0 #a05f15; }
+        button:disabled { background: #444; color: #888; box-shadow: none; pointer-events: none; }
+        .btn-no { background: #ff4757; box-shadow: 0 3px 0 #b33939; color: white; }
+
+        .drag-area { background: #1a3a35; border-radius: 15px; padding: 15px; text-align: center; margin: 10px 0; }
+        .draggable-cargo {
+            display: inline-block; background: #e0aa3e; padding: 12px 20px;
+            border-radius: 10px; font-size: 1.5rem; cursor: grab;
+        }
+        .drop-zone {
+            background: #0b2b26; border: 2px dashed #f2b807;
+            border-radius: 15px; padding: 15px; margin-top: 15px; color: #f2b807;
+        }
+
+        .strategy-item {
+            background: #0a2f2a; padding: 10px; border-radius: 8px; border: 1px solid #333;
+            margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .event-log {
+            background: #02100e; border-radius: 12px; padding: 10px;
+            height: 120px; overflow-y: auto; font-size: 0.75rem; border: 1px solid #222;
+        }
+        .event-log p { margin: 4px 0; border-left: 2px solid #f2b807; padding-left: 6px; }
+        
+        .quiz-area { background: #0d3b36; padding: 15px; border-radius: 10px; margin-top: 10px; border: 1px solid #f2b80733; }
+
+        footer { text-align: center; font-size: 0.7rem; color: #668880; margin-top: 10px; }
+        .cooldown-timer { font-size: 0.8rem; background: #1a3a35; display: inline-block; padding: 4px 12px; border-radius: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="startOverlay">
+    <h2 style="color: #f2b807;">🏙️ 選擇你的商業賽道</h2>
+    <p style="color: #ccc;">每個人初始資金只有 $200，你需要打工來籌集開業經費。</p>
+    <div id="bizChoices" style="width: 100%; max-width: 400px;"></div>
+</div>
+
+<div class="game-container">
+    <div class="status-bar">
+        <div class="stat">💰 <span>現金:</span> <span id="cashAmt">0</span></div>
+        <div class="stat">⏳ <span id="gameTimer">80:00</span></div>
+        <div class="stat" style="width: 100%; margin-top:5px; text-align: center; background: none; border-top: 1px solid #222;">
+            🏢 <span id="bizTypeDisplay">未選擇</span> <span id="openStatus"></span>
+        </div>
+    </div>
+
+    <div class="news-ticker">
+        <div class="ticker-content" id="tickerText">歡迎來到 BH City！資金嚴重不足，請先到工業區尋找工作機會。</div>
+    </div>
+
+    <div class="map-buttons">
+        <div class="map-btn" onclick="showPanel('industry')" id="btn-industry">🏭 工業區</div>
+        <div class="map-btn" onclick="showPanel('business')" id="btn-business">🏢 商業中心</div>
+        <div class="map-btn" onclick="showPanel('plaza')" id="btn-plaza">🏛️ 市中心廣場</div>
+    </div>
+
+    <div class="panel" id="dynamicPanel"></div>
+
+    <div class="event-log" id="eventLog">
+        <strong>📜 經營紀錄</strong>
+        <div id="logContent"></div>
+    </div>
+
+    <footer>BH City 商業模擬系統 | 2026 版</footer>
+</div>
+
+<script>
+    // ======================= 商業類型 =======================
+    const BIZ_TYPES = {
+        cafe: { name: "文青咖啡店", startup: 800, baseRev: 220, modifiers: { tech:1, storm:0.7, boom:1.2 } },
+        electronics: { name: "電子用品店", startup: 1500, baseRev: 450, modifiers: { tech:3, storm:0.4, boom:1.8 } },
+        greenEnergy: { name: "綠色能源汽車店", startup: 3000, baseRev: 950, modifiers: { tech:1.5, storm:0.8, boom:1.5 } }
+    };
+
+    // ======================= 擴充題庫 (15 題商業管理) =======================
+    const QUESTION_BANK = [
+        { text: "邊際貢獻的定義是？", options: ["收入 - 變動成本", "收入 - 固定成本", "淨利潤 + 折舊"], correct: 0, reward: 200 },
+        { text: "下列哪一項屬於變動成本？", options: ["租金", "原材料", "管理人員薪酬"], correct: 1, reward: 200 },
+        { text: "損益平衡點 (Break-even point) 上升，通常代表？", options: ["盈利能力增強", "風險增加", "固定成本減少"], correct: 1, reward: 200 },
+        { text: "資產負債表上，『流動資產』不包括？", options: ["現金", "應收賬款", "專利權"], correct: 2, reward: 200 },
+        { text: "ROE (股東權益報酬率) 的計算公式是？", options: ["淨利 / 總資產", "淨利 / 股東權益", "營業利潤 / 營業收入"], correct: 1, reward: 200 },
+        { text: "存貨周轉率過高可能暗示？", options: ["缺貨風險", "倉儲成本過高", "銷售效率極高且無缺貨"], correct: 0, reward: 200 },
+        { text: "以下哪項屬於『無形資產』？", options: ["辦公設備", "商譽", "庫存商品"], correct: 1, reward: 200 },
+        { text: "邊際成本 (Marginal Cost) 定義是？", options: ["生產最後一單位的額外成本", "總成本除以數量", "固定成本平均"], correct: 0, reward: 200 },
+        { text: "SWOT 分析中的『T』代表？", options: ["威脅", "機會", "優勢"], correct: 0, reward: 200 },
+        { text: "『流動比率』(Current Ratio) 主要衡量？", options: ["長期償債能力", "短期償債能力", "獲利能力"], correct: 1, reward: 200 },
+        { text: "如果一家公司的毛利率上升但淨利率下降，可能原因是？", options: ["營運費用增加", "銷量減少", "稅率降低"], correct: 0, reward: 200 },
+        { text: "『規模經濟』(Economies of scale) 會導致？", options: ["平均成本隨產量上升而下降", "固定成本增加", "變動成本為零"], correct: 0, reward: 200 },
+        { text: "以下哪種定價策略最適合打入新市場？", options: ["撇脂定價", "滲透定價", "溢價定價"], correct: 1, reward: 200 },
+        { text: "『機會成本』是指？", options: ["選擇某一選項而放棄的其他選項的價值", "會計帳面成本", "邊際成本"], correct: 0, reward: 200 },
+        { text: "現金流量表中，購買設備屬於哪類活動？", options: ["營業活動", "投資活動", "融資活動"], correct: 1, reward: 200 }
+    ];
+
+    const NPC_PRICES = { oracle: 120, mentor: 80 };
+
+    let player = {
+        cash: 200,
+        type: null,
+        isOpened: false,
+        upgradeLevel: 0,
+        jobCooldown: 0,          // 打工冷卻秒數 (開業後每個任務獨立冷卻)
+        settleCooldown: 0,
+        marketModifier: 1.0,
+        // 開業前專用的三個任務完成標記 (未開業時必須三個都做完才觸發冷卻)
+        preOpenTasks: { level1: false, level2: false, level3: false },
+        // 開業後重複打工的冷卻標誌 (由 jobCooldown 控制)
+        strategies: { ads: false, promo: false },
+        activeBoost: 0,
+        boostMult: 1.0,
+        pendingQuiz: null       // 存儲當前考核題目物件
+    };
+
+    let gameTime = 80 * 60;
+    let currentRegion = 'industry';
+    let timerInterval = null;
+
+    // ======================= 初始化 & 倒數 =======================
+    function init() {
+        const container = document.getElementById('bizChoices');
+        for (let key in BIZ_TYPES) {
+            container.innerHTML += `
+                <div class="biz-card" onclick="selectBusiness('${key}')">
+                    <strong>${BIZ_TYPES[key].name}</strong><br>
+                    <small>需要啟動資金: $${BIZ_TYPES[key].startup}</small>
+                </div>
+            `;
+        }
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(tick, 1000);
+        setInterval(autoEvent, 600000); // 每10分鐘隨機事件
+    }
+
+    function tick() {
+        if (gameTime > 0) {
+            gameTime--;
+            if (player.jobCooldown > 0) player.jobCooldown--;
+            if (player.settleCooldown > 0) player.settleCooldown--;
+            updateTimerUI();
+            if (gameTime % 2 === 0) updateUI();
+            if (gameTime <= 0) {
+                endGameReport();
+            }
+        }
+    }
+
+    function endGameReport() {
+        if (timerInterval) clearInterval(timerInterval);
+        alert("遊戲時間結束！最終報告將顯示。");
+        const profit = player.cash - 200;
+        addLog(`🏁 模擬結束，最終現金: $${Math.floor(player.cash)}，累積利潤: $${Math.floor(profit)}`);
+        // 簡單報告彈窗
+        let msg = `======== BH City 最終結算 ========\n`;
+        msg += `開業與否: ${player.isOpened ? "已開業" : "未開業"}\n`;
+        msg += `最終現金: $${Math.floor(player.cash)}\n`;
+        msg += `總利潤: $${Math.floor(player.cash - 200)}\n`;
+        msg += `店舖等級: Lv.${player.upgradeLevel}\n`;
+        alert(msg);
+    }
+
+    function selectBusiness(key) {
+        player.type = key;
+        document.getElementById('startOverlay').style.display = 'none';
+        document.getElementById('bizTypeDisplay').innerText = BIZ_TYPES[key].name;
+        document.getElementById('openStatus').innerHTML = `<span style="color:#ff6e6e;">(籌備中)</span>`;
+        addLog(`🚩 目標：${BIZ_TYPES[key].name}。請先去打工賺夠 $${BIZ_TYPES[key].startup}。`);
+        showPanel('industry');
+    }
+
+    function autoEvent() {
+        const evts = [
+            { n: "📱 科技大展", m: 0.6, t: 'tech' },
+            { n: "🌀 強烈颱風", m: -0.5, t: 'storm' },
+            { n: "📈 經濟復甦", m: 0.4, t: 'boom' }
+        ];
+        const e = evts[Math.floor(Math.random() * evts.length)];
+        const bizMod = player.type ? (BIZ_TYPES[player.type].modifiers[e.t] || 1) : 1;
+        player.marketModifier = 1.0 + (e.m * bizMod);
+        player.marketModifier = Math.max(0.3, Math.min(2.5, player.marketModifier));
+        document.getElementById('tickerText').innerText = `【事件】${e.n}：市場波動影響營收...`;
+        addLog(`📢 市場變動：${e.n} → 市場係數 ${player.marketModifier.toFixed(2)}`);
+    }
+
+    function updateUI() {
+        document.getElementById('cashAmt').innerText = Math.floor(player.cash);
+        if (currentRegion === 'industry') renderIndustry();
+        else if (currentRegion === 'business') renderBusiness();
+        else if (currentRegion === 'plaza') renderPlaza();
+    }
+
+    function updateTimerUI() {
+        let m = Math.floor(gameTime / 60), s = gameTime % 60;
+        document.getElementById('gameTimer').innerText = `${m}:${s.toString().padStart(2,'0')}`;
+    }
+
+    function showPanel(r) {
+        currentRegion = r;
+        document.querySelectorAll('.map-btn').forEach(b => b.classList.remove('active-region'));
+        document.getElementById(`btn-${r}`).classList.add('active-region');
+        updateUI();
+    }
+
+    // ======================= 工業區 (區分開業前 / 開業後) =======================
+    function renderIndustry() {
+        const panel = document.getElementById('dynamicPanel');
+        const canWork = (player.jobCooldown <= 0);
+        const isOpened = player.isOpened;
+
+        // 開業後顯示「兼職打工」模式 (每次獨立冷卻)
+        if (isOpened) {
+            panel.innerHTML = `
+                <h3>🏭 工業區 - 兼職打工 (開業後需管理店舖)</h3>
+                <p class="cooldown-timer">${player.jobCooldown > 0 ? `⏳ 體力恢復中: ${player.jobCooldown}秒` : '✅ 可以兼職'}</p>
+                <div class="drag-area">
+                    <strong>📦 臨時貨運 (點擊或拖拽)</strong><br>
+                    <div class="draggable-cargo" id="cargoPostOpen" draggable="${canWork}" style="cursor:${canWork?'grab':'not-allowed'}">📦 搬運</div>
+                    <div class="drop-zone" id="dropPostOpen" ondragover="event.preventDefault()" ondrop="postOpenWork(event)">拖到這裡兼職</div>
+                </div>
+                <button onclick="postOpenMental()" ${!canWork ? 'disabled' : ''}>🧠 文書兼職 (+$150~250)</button>
+                <button onclick="postOpenQuiz()" ${!canWork ? 'disabled' : ''}>📊 快速管理考核 (+$200~300)</button>
+                <div class="small-text" style="margin-top:10px;">⚠️ 開業後每次打工需要休息3分鐘，請平衡管理店舖時間。</div>
+            `;
+            // 重新綁定拖拽事件 (因為 dom 刷新)
+            const cargo = document.getElementById('cargoPostOpen');
+            if (cargo) {
+                cargo.ondragstart = (e) => {
+                    if (player.jobCooldown > 0 || !gameTime) { e.preventDefault(); return false; }
+                    e.dataTransfer.setData('text/plain', 'post');
+                };
+            }
+            return;
+        }
+
+        // ========= 未開業：原有三階段任務 (必須全部完成才能獲得創業金) =========
+        const allDone = player.preOpenTasks.level1 && player.preOpenTasks.level2 && player.preOpenTasks.level3;
+        // 如果三個都已完成且冷卻為0，自動重置讓玩家可以再打工? 但原意是籌夠錢開業，但開業後會切換模式，所以未開業時三個任務只能做一輪
+        // 為避免卡死，如果三個都完成但還不夠開業，不重置；玩家需要依靠開業後打工? 但未開業時不能開業後打工，所以為了遊戲性，未開業時三個任務完成後不能重複，需提示開業
+        let disableWork = player.jobCooldown > 0 || allDone;
+        panel.innerHTML = `
+            <h3>🏭 工業區 (創業集資)</h3>
+            <p class="cooldown-timer">${player.jobCooldown > 0 ? `⏳ 休息中: ${player.jobCooldown}秒` : (allDone ? '✅ 已集資完畢，請前往商業中心開業' : '✅ 可接任務')}</p>
+            <div class="drag-area">
+                <strong>[Lv.1] 體力勞動 ($80)</strong><br>
+                ${player.preOpenTasks.level1 ? '✅ 已完成' : `
+                    <div class="draggable-cargo" id="cargoPre" draggable="${!disableWork}" ondragstart="event.dataTransfer.setData('t','pre1')">📦</div>
+                    <div class="drop-zone" ondragover="event.preventDefault()" ondrop="preOpenDragDrop(event)">拖到此區</div>
+                `}
+            </div>
+            <button onclick="preOpenMath()" ${(disableWork || player.preOpenTasks.level2) ? 'disabled' : ''}>
+                ${player.preOpenTasks.level2 ? '✅ [Lv.2] 已完成' : '[Lv.2] 商業心算 ($120)'}
+            </button>
+            <div class="quiz-area">
+                <strong>[Lv.3] 經營知識考核 ($200)</strong>
+                ${player.preOpenTasks.level3 ? '<p>✅ 已完成</p>' : (
+                    disableWork ? '<p style="color:#666;">體力冷卻中或已完成全部...</p>' : (
+                        player.pendingQuiz ? renderQuizQuestion() : '<br><button onclick="startPreOpenQuiz()">開始考核</button>'
+                    )
+                )}
+            </div>
+            ${allDone ? '<div style="background:#2a5d56; padding:8px; border-radius:10px;">✨ 已完成所有打工任務，快前往商業中心開業！</div>' : ''}
+        `;
+        if (!player.preOpenTasks.level1 && !disableWork) {
+            const cargoPre = document.getElementById('cargoPre');
+            if (cargoPre) cargoPre.ondragstart = (e) => { e.dataTransfer.setData('text/plain', 'pre1'); };
+        }
+    }
+
+    // 開業前拖拽
+    function preOpenDragDrop(e) {
+        e.preventDefault();
+        if (player.jobCooldown > 0 || player.preOpenTasks.level1) return;
+        player.cash += 80;
+        player.preOpenTasks.level1 = true;
+        addLog("💪 搬運完成 +$80");
+        checkPreOpenCompletion();
+        updateUI();
+    }
+
+    function preOpenMath() {
+        if (player.jobCooldown > 0 || player.preOpenTasks.level2) return;
+        const a = Math.floor(Math.random()*90)+10, b = Math.floor(Math.random()*90)+10;
+        const ans = prompt(`心算測試：${a} + ${b} = ?`);
+        if (parseInt(ans) === a+b) {
+            player.cash += 120;
+            player.preOpenTasks.level2 = true;
+            addLog("✅ 心算正確 +$120");
+            checkPreOpenCompletion();
+            updateUI();
+        } else if(ans !== null) alert("計算錯誤！");
+    }
+
+    function startPreOpenQuiz() {
+        if (player.jobCooldown > 0 || player.preOpenTasks.level3) return;
+        // 隨機選題 (15題庫)
+        const randomIndex = Math.floor(Math.random() * QUESTION_BANK.length);
+        player.pendingQuiz = { ...QUESTION_BANK[randomIndex] };
+        renderIndustry(); // 重新渲染顯示題目
+    }
+
+    function renderQuizQuestion() {
+        if (!player.pendingQuiz) return '<button onclick="startPreOpenQuiz()">開始考核</button>';
+        const q = player.pendingQuiz;
+        let optsHtml = '';
+        q.options.forEach((opt, idx) => {
+            optsHtml += `<button style="margin:3px;" onclick="answerPreOpenQuiz(${idx})">${String.fromCharCode(65+idx)}. ${opt}</button>`;
+        });
+        return `<p>❓ ${q.text}</p>${optsHtml}`;
+    }
+
+    function answerPreOpenQuiz(selectedIdx) {
+        if (!player.pendingQuiz) return;
+        const q = player.pendingQuiz;
+        if (selectedIdx === q.correct) {
+            player.cash += q.reward;
+            player.preOpenTasks.level3 = true;
+            addLog(`🏆 經營知識正確！ +$${q.reward}`);
+        } else {
+            addLog(`❌ 考核失敗！正確答案為 ${q.options[q.correct]}，沒有獎金。`);
+        }
+        player.pendingQuiz = null;
+        checkPreOpenCompletion();
+        updateUI();
+    }
+
+    function checkPreOpenCompletion() {
+        if (player.preOpenTasks.level1 && player.preOpenTasks.level2 && player.preOpenTasks.level3) {
+            // 三個都完成，啟動冷卻3分鐘，並阻止再打工
+            player.jobCooldown = 180;
+            addLog("⚠️ 完成所有創業集資任務，體力耗盡，休息 3 分鐘。");
+            updateUI();
+        }
+    }
+
+    // ========= 開業後重複打工 (每次獨立冷卻3分鐘) =========
+    function postOpenWork(e) {
+        if (!player.isOpened) return;
+        if (player.jobCooldown > 0) { addLog("你正在管理店舖，無法兼職。"); return; }
+        const earn = 130 + Math.floor(Math.random() * 100); // 130~229
+        player.cash += earn;
+        addLog(`💼 兼職貨運完成 +$${earn} (店舖經營之餘賺外快)`);
+        applyPostOpenCooldown();
+        updateUI();
+    }
+
+    function postOpenMental() {
+        if (!player.isOpened) return;
+        if (player.jobCooldown > 0) { addLog("體力恢復中，無法兼職。"); return; }
+        const a = Math.floor(Math.random()*50)+10, b = Math.floor(Math.random()*40)+10;
+        const ans = prompt(`文書兼職心算：${a} + ${b} = ?`);
+        if (parseInt(ans) === a+b) {
+            const reward = 150 + Math.floor(Math.random() * 100);
+            player.cash += reward;
+            addLog(`✅ 兼職心算成功 +$${reward}`);
+        } else {
+            addLog(`❌ 心算錯誤，沒有報酬。`);
+        }
+        applyPostOpenCooldown();
+        updateUI();
+    }
+
+    function postOpenQuiz() {
+        if (!player.isOpened) return;
+        if (player.jobCooldown > 0) { addLog("體力恢復中，無法兼職。"); return; }
+        // 隨機一題快速考核
+        const q = QUESTION_BANK[Math.floor(Math.random() * QUESTION_BANK.length)];
+        const optStr = q.options.map((o,i)=>`${String.fromCharCode(65+i)}. ${o}`).join('\n');
+        const userAns = prompt(`📊 兼職管理考核 (獎金豐厚)\n${q.text}\n${optStr}\n請輸入字母 (A/B/C):`);
+        if (userAns) {
+            let idx = userAns.toUpperCase().charCodeAt(0) - 65;
+            if (idx === q.correct) {
+                let reward = 200 + Math.floor(Math.random() * 100);
+                player.cash += reward;
+                addLog(`🏅 考核正確！獲得獎金 $${reward}`);
+            } else {
+                addLog(`📉 考核錯誤，正確答案: ${q.options[q.correct]}`);
+            }
+        } else addLog("放棄考核，無獎勵");
+        applyPostOpenCooldown();
+        updateUI();
+    }
+
+    function applyPostOpenCooldown() {
+        player.jobCooldown = 180;  // 3分鐘冷卻
+        addLog("⏰ 兼職消耗精力，需要休息 3 分鐘才能再次打工。");
+    }
+
+    // ======================= 商業中心 (開業/結算/升級) =======================
+    function renderBusiness() {
+        const p = document.getElementById('dynamicPanel');
+        const biz = BIZ_TYPES[player.type];
+        if (!player.isOpened) {
+            const progress = Math.min(100, (player.cash / biz.startup) * 100);
+            p.innerHTML = `
+                <h3>🏢 ${biz.name} (籌備中)</h3>
+                <div class="startup-box">
+                    <p>開業所需資金: <strong>$${biz.startup}</strong></p>
+                    <p>目前持有資金: <span style="color:#ffd966;">$${Math.floor(player.cash)}</span></p>
+                    <div style="width:100%; background:#222; height:10px; border-radius:5px; margin:10px 0;">
+                        <div style="width:${progress}%; background:#f2b807; height:100%;"></div>
+                    </div>
+                    <button onclick="tryOpen()" ${player.cash < biz.startup ? 'disabled' : ''}>正式開業</button>
+                    ${player.cash < biz.startup ? `<p style="font-size:0.75rem;">還差 $${biz.startup - Math.floor(player.cash)}，請到工業區打工</p>` : ''}
+                </div>
+            `;
+        } else {
+            p.innerHTML = `
+                <h3>🏢 ${biz.name} 管理中心</h3>
+                <p>市場環境: ${(player.marketModifier*100).toFixed(0)}% | 店舖: Lv.${player.upgradeLevel}</p>
+                ${player.activeBoost > 0 ? `<div style="color:#f2b807;">🔥 品牌紅利生效中 (剩餘 ${player.activeBoost} 輪)</div>` : ''}
+                <div class="strategy-item"><span>📢 廣告曝光 ($150)</span><input type="checkbox" id="chkAds" ${player.strategies.ads?'checked':''} onchange="player.strategies.ads=this.checked"></div>
+                <div class="strategy-item"><span>🏷️ 限時折扣 ($100)</span><input type="checkbox" id="chkPro" ${player.strategies.promo?'checked':''} onchange="player.strategies.promo=this.checked"></div>
+                <button onclick="upgradeShop()">🔼 升級店舖 ($${(player.upgradeLevel+1)*500})</button>
+                <button style="width:100%; margin-top:10px;" onclick="settleBusiness()" ${player.settleCooldown>0?'disabled':''}>
+                    💰 ${player.settleCooldown>0?`核數中 (${player.settleCooldown}s)`:'進行今日結算'}
+                </button>
+            `;
+        }
+    }
+
+    function tryOpen() {
+        const cost = BIZ_TYPES[player.type].startup;
+        if (player.cash >= cost) {
+            player.cash -= cost;
+            player.isOpened = true;
+            document.getElementById('openStatus').innerHTML = `<span style="color:#7bed9f;">(營業中)</span>`;
+            addLog(`🎉 恭喜開業！現在管理店舖之餘仍可兼職打工 (每次打工需冷卻3分鐘)。`);
+            updateUI();
+        }
+    }
+
+    function upgradeShop() {
+        const cost = (player.upgradeLevel+1)*500;
+        if (player.cash >= cost) {
+            player.cash -= cost; player.upgradeLevel++;
+            addLog(`✨ 店舖升級至 Lv.${player.upgradeLevel}`);
+            updateUI();
+        } else addLog("資金不足以升級");
+    }
+
+    function settleBusiness() {
+        const biz = BIZ_TYPES[player.type];
+        let mult = player.marketModifier;
+        if (player.activeBoost > 0) { mult *= player.boostMult; player.activeBoost--; }
+        if (player.strategies.ads) {
+            if (player.cash < 150) { addLog("廣告費不足，取消廣告"); player.strategies.ads = false; }
+            else { player.cash -= 150; if (Math.random() < 0.6) { player.activeBoost = 2; player.boostMult = 1.6; addLog("🎯 廣告大獲成功！"); } else addLog("💸 廣告效果普通。"); }
+        }
+        if (player.strategies.promo) {
+            if (player.cash < 100) { addLog("促銷費不足"); player.strategies.promo = false; }
+            else { player.cash -= 100; if (Math.random() < 0.7) { player.activeBoost = Math.max(player.activeBoost, 1); player.boostMult = 1.3; addLog("🏷️ 促銷帶動客流。"); } else addLog("📉 促銷反應平平。"); }
+        }
+        let profit = Math.floor((biz.baseRev + player.upgradeLevel * 150) * mult * 0.7);
+        player.cash += profit;
+        player.settleCooldown = 300;
+        player.strategies = { ads: false, promo: false };
+        addLog(`🏪 本日結算利潤 $${profit} (市場係數 ${mult.toFixed(2)})`);
+        updateUI();
+    }
+
+    // ======================= 市中心廣場 (隨機機率回報) =======================
+    function renderPlaza() {
+        const p = document.getElementById('dynamicPanel');
+        p.innerHTML = `
+            <h3>🏛️ 市中心廣場</h3>
+            <p style="font-size:0.8rem;">諮詢專家有機會獲得高額回報，但也有可能毫無收穫。</p>
+            <div class="biz-card" onclick="interactNPC('oracle')">
+                <strong>🔮 市場占卜師 ($120)</strong><br>
+                <small>預測趨勢，可能帶來巨大收益或無效</small>
+            </div>
+            <div class="biz-card" onclick="interactNPC('mentor')">
+                <strong>👨‍🏫 經營導師 ($80)</strong><br>
+                <small>實戰建議，有機會獲得補貼也可能無效</small>
+            </div>
+        `;
+    }
+
+    function interactNPC(type) {
+        const cost = NPC_PRICES[type];
+        if (player.cash < cost) {
+            addLog(`資金不足，無法支付 $${cost} 諮詢費。`);
+            return;
+        }
+        player.cash -= cost;
+        if (type === 'oracle') {
+            // 占卜師: 成本高，回報高但機率較低 (40%無回報，60%有回報，回報150~500)
+            const rand = Math.random();
+            if (rand < 0.4) {
+                addLog(`🔮 占卜師預測失準，你損失了 $${cost} 諮詢費，沒有得到任何回報。`);
+            } else {
+                const reward = 200 + Math.floor(Math.random() * 350); // 200~549
+                player.cash += reward;
+                addLog(`🔮 占卜師給出精準市場走勢，你獲得了 $${reward} 投資收益！`);
+            }
+        } else if (type === 'mentor') {
+            // 導師: 成本低，30%無回報，70%回報80~250
+            const rand = Math.random();
+            if (rand < 0.3) {
+                addLog(`👨‍🏫 導師的建議不適用於當前情況，諮詢費 $${cost} 付諸流水。`);
+            } else {
+                const reward = 100 + Math.floor(Math.random() * 180);
+                player.cash += reward;
+                addLog(`👨‍🏫 導師傳授了關鍵策略，幫你爭取到 $${reward} 政府補貼！`);
+            }
+        }
+        updateUI();
+    }
+
+    function addLog(m) {
+        const logDiv = document.getElementById('logContent');
+        logDiv.innerHTML = `<p>${m}</p>` + logDiv.innerHTML;
+        if (logDiv.children.length > 15) logDiv.lastChild.remove();
+        // 同時更新跑馬燈（可選）
+        const ticker = document.getElementById('tickerText');
+        if (ticker) ticker.innerText = m;
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
