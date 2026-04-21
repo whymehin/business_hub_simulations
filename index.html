@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>🏙️ BH City - 商業模擬</title>
+    <title>🏙️ BH City - 商業模擬 3.3 (最終修正版)</title>
     <style>
         * { box-sizing: border-box; user-select: none; touch-action: manipulation; }
         body {
@@ -101,6 +101,7 @@
 
         footer { text-align: center; font-size: 0.7rem; color: #668880; margin-top: 10px; }
         .cooldown-timer { font-size: 0.8rem; background: #1a3a35; display: inline-block; padding: 4px 12px; border-radius: 20px; }
+        .npc-cooldown { margin-top: 8px; font-size: 0.7rem; color: #ffaa66; }
     </style>
 </head>
 <body>
@@ -174,16 +175,16 @@
         type: null,
         isOpened: false,
         upgradeLevel: 0,
-        jobCooldown: 0,          // 打工冷卻秒數 (開業後每個任務獨立冷卻)
+        jobCooldown: 0,          // 打工冷卻秒數 (開業前後共用)
+        npcCooldown: 0,          // NPC 互動冷卻 (3分鐘)
         settleCooldown: 0,
         marketModifier: 1.0,
-        // 開業前專用的三個任務完成標記 (未開業時必須三個都做完才觸發冷卻)
+        // 開業前專用的三個任務完成標記
         preOpenTasks: { level1: false, level2: false, level3: false },
-        // 開業後重複打工的冷卻標誌 (由 jobCooldown 控制)
         strategies: { ads: false, promo: false },
         activeBoost: 0,
         boostMult: 1.0,
-        pendingQuiz: null       // 存儲當前考核題目物件
+        pendingQuiz: null
     };
 
     let gameTime = 80 * 60;
@@ -209,10 +210,21 @@
     function tick() {
         if (gameTime > 0) {
             gameTime--;
-            if (player.jobCooldown > 0) player.jobCooldown--;
-            if (player.settleCooldown > 0) player.settleCooldown--;
+            let needUpdate = false;
+            if (player.jobCooldown > 0) {
+                player.jobCooldown--;
+                if (player.jobCooldown === 0) needUpdate = true;
+            }
+            if (player.npcCooldown > 0) {
+                player.npcCooldown--;
+                if (player.npcCooldown === 0) needUpdate = true;
+            }
+            if (player.settleCooldown > 0) {
+                player.settleCooldown--;
+                if (player.settleCooldown === 0) needUpdate = true;
+            }
             updateTimerUI();
-            if (gameTime % 2 === 0) updateUI();
+            if (needUpdate || gameTime % 2 === 0) updateUI();
             if (gameTime <= 0) {
                 endGameReport();
             }
@@ -224,7 +236,6 @@
         alert("遊戲時間結束！最終報告將顯示。");
         const profit = player.cash - 200;
         addLog(`🏁 模擬結束，最終現金: $${Math.floor(player.cash)}，累積利潤: $${Math.floor(profit)}`);
-        // 簡單報告彈窗
         let msg = `======== BH City 最終結算 ========\n`;
         msg += `開業與否: ${player.isOpened ? "已開業" : "未開業"}\n`;
         msg += `最終現金: $${Math.floor(player.cash)}\n`;
@@ -281,7 +292,6 @@
         const canWork = (player.jobCooldown <= 0);
         const isOpened = player.isOpened;
 
-        // 開業後顯示「兼職打工」模式 (每次獨立冷卻)
         if (isOpened) {
             panel.innerHTML = `
                 <h3>🏭 工業區 - 兼職打工 (開業後需管理店舖)</h3>
@@ -295,7 +305,6 @@
                 <button onclick="postOpenQuiz()" ${!canWork ? 'disabled' : ''}>📊 快速管理考核 (+$200~300)</button>
                 <div class="small-text" style="margin-top:10px;">⚠️ 開業後每次打工需要休息3分鐘，請平衡管理店舖時間。</div>
             `;
-            // 重新綁定拖拽事件 (因為 dom 刷新)
             const cargo = document.getElementById('cargoPostOpen');
             if (cargo) {
                 cargo.ondragstart = (e) => {
@@ -306,10 +315,8 @@
             return;
         }
 
-        // ========= 未開業：原有三階段任務 (必須全部完成才能獲得創業金) =========
+        // 未開業：三階段任務
         const allDone = player.preOpenTasks.level1 && player.preOpenTasks.level2 && player.preOpenTasks.level3;
-        // 如果三個都已完成且冷卻為0，自動重置讓玩家可以再打工? 但原意是籌夠錢開業，但開業後會切換模式，所以未開業時三個任務只能做一輪
-        // 為避免卡死，如果三個都完成但還不夠開業，不重置；玩家需要依靠開業後打工? 但未開業時不能開業後打工，所以為了遊戲性，未開業時三個任務完成後不能重複，需提示開業
         let disableWork = player.jobCooldown > 0 || allDone;
         panel.innerHTML = `
             <h3>🏭 工業區 (創業集資)</h3>
@@ -340,7 +347,6 @@
         }
     }
 
-    // 開業前拖拽
     function preOpenDragDrop(e) {
         e.preventDefault();
         if (player.jobCooldown > 0 || player.preOpenTasks.level1) return;
@@ -366,10 +372,9 @@
 
     function startPreOpenQuiz() {
         if (player.jobCooldown > 0 || player.preOpenTasks.level3) return;
-        // 隨機選題 (15題庫)
         const randomIndex = Math.floor(Math.random() * QUESTION_BANK.length);
         player.pendingQuiz = { ...QUESTION_BANK[randomIndex] };
-        renderIndustry(); // 重新渲染顯示題目
+        renderIndustry();
     }
 
     function renderQuizQuestion() {
@@ -399,18 +404,17 @@
 
     function checkPreOpenCompletion() {
         if (player.preOpenTasks.level1 && player.preOpenTasks.level2 && player.preOpenTasks.level3) {
-            // 三個都完成，啟動冷卻3分鐘，並阻止再打工
             player.jobCooldown = 180;
             addLog("⚠️ 完成所有創業集資任務，體力耗盡，休息 3 分鐘。");
             updateUI();
         }
     }
 
-    // ========= 開業後重複打工 (每次獨立冷卻3分鐘) =========
+    // ========= 開業後重複打工 =========
     function postOpenWork(e) {
         if (!player.isOpened) return;
         if (player.jobCooldown > 0) { addLog("你正在管理店舖，無法兼職。"); return; }
-        const earn = 130 + Math.floor(Math.random() * 100); // 130~229
+        const earn = 130 + Math.floor(Math.random() * 100);
         player.cash += earn;
         addLog(`💼 兼職貨運完成 +$${earn} (店舖經營之餘賺外快)`);
         applyPostOpenCooldown();
@@ -436,7 +440,6 @@
     function postOpenQuiz() {
         if (!player.isOpened) return;
         if (player.jobCooldown > 0) { addLog("體力恢復中，無法兼職。"); return; }
-        // 隨機一題快速考核
         const q = QUESTION_BANK[Math.floor(Math.random() * QUESTION_BANK.length)];
         const optStr = q.options.map((o,i)=>`${String.fromCharCode(65+i)}. ${o}`).join('\n');
         const userAns = prompt(`📊 兼職管理考核 (獎金豐厚)\n${q.text}\n${optStr}\n請輸入字母 (A/B/C):`);
@@ -455,11 +458,11 @@
     }
 
     function applyPostOpenCooldown() {
-        player.jobCooldown = 180;  // 3分鐘冷卻
+        player.jobCooldown = 180;
         addLog("⏰ 兼職消耗精力，需要休息 3 分鐘才能再次打工。");
     }
 
-    // ======================= 商業中心 (開業/結算/升級) =======================
+    // ======================= 商業中心 =======================
     function renderBusiness() {
         const p = document.getElementById('dynamicPanel');
         const biz = BIZ_TYPES[player.type];
@@ -532,51 +535,62 @@
         updateUI();
     }
 
-    // ======================= 市中心廣場 (隨機機率回報) =======================
+    // ======================= 市中心廣場 (新增冷卻與機率回報) =======================
     function renderPlaza() {
         const p = document.getElementById('dynamicPanel');
+        const canInteract = (player.npcCooldown <= 0);
         p.innerHTML = `
             <h3>🏛️ 市中心廣場</h3>
-            <p style="font-size:0.8rem;">諮詢專家有機會獲得高額回報，但也有可能毫無收穫。</p>
-            <div class="biz-card" onclick="interactNPC('oracle')">
+            <p style="font-size:0.8rem;">諮詢專家有機會獲得高額回報，但也有可能毫無收穫，每次諮詢後需休息3分鐘。</p>
+            ${player.npcCooldown > 0 ? `<p class="npc-cooldown">⏳ 專家正在整理思緒，請 ${player.npcCooldown} 秒後再來。</p>` : ''}
+            <div class="biz-card" onclick="if(${canInteract}) interactNPC('oracle')" style="${!canInteract ? 'opacity:0.5; pointer-events:none;' : ''}">
                 <strong>🔮 市場占卜師 ($120)</strong><br>
-                <small>預測趨勢，可能帶來巨大收益或無效</small>
+                <small>30%機率獲得雙倍回報，否則一無所獲</small>
             </div>
-            <div class="biz-card" onclick="interactNPC('mentor')">
+            <div class="biz-card" onclick="if(${canInteract}) interactNPC('mentor')" style="${!canInteract ? 'opacity:0.5; pointer-events:none;' : ''}">
                 <strong>👨‍🏫 經營導師 ($80)</strong><br>
-                <small>實戰建議，有機會獲得補貼也可能無效</small>
+                <small>50%機率獲得180%回報，否則一無所獲</small>
             </div>
         `;
     }
 
     function interactNPC(type) {
+        if (player.npcCooldown > 0) {
+            addLog(`請等待 ${player.npcCooldown} 秒後再使用 NPC 服務。`);
+            return;
+        }
         const cost = NPC_PRICES[type];
         if (player.cash < cost) {
             addLog(`資金不足，無法支付 $${cost} 諮詢費。`);
             return;
         }
         player.cash -= cost;
+        let win = false;
+        let gain = 0;
         if (type === 'oracle') {
-            // 占卜師: 成本高，回報高但機率較低 (40%無回報，60%有回報，回報150~500)
-            const rand = Math.random();
-            if (rand < 0.4) {
-                addLog(`🔮 占卜師預測失準，你損失了 $${cost} 諮詢費，沒有得到任何回報。`);
+            // 勝率30%，回報 = 成本 x 2 = 240
+            if (Math.random() < 0.3) {
+                win = true;
+                gain = cost * 2;  // 240
+                player.cash += gain;
+                addLog(`🔮 占卜師精準預測市場走勢！你獲得了 $${gain} 投資收益！`);
             } else {
-                const reward = 200 + Math.floor(Math.random() * 350); // 200~549
-                player.cash += reward;
-                addLog(`🔮 占卜師給出精準市場走勢，你獲得了 $${reward} 投資收益！`);
+                addLog(`🔮 占卜師預測失準，你損失了 $${cost} 諮詢費，沒有得到任何回報。`);
             }
         } else if (type === 'mentor') {
-            // 導師: 成本低，30%無回報，70%回報80~250
-            const rand = Math.random();
-            if (rand < 0.3) {
-                addLog(`👨‍🏫 導師的建議不適用於當前情況，諮詢費 $${cost} 付諸流水。`);
+            // 勝率50%，回報 = 成本 x 1.8 = 144 (取整)
+            if (Math.random() < 0.5) {
+                win = true;
+                gain = Math.round(cost * 1.8); // 144
+                player.cash += gain;
+                addLog(`👨‍🏫 導師傳授了關鍵策略，幫你爭取到 $${gain} 政府補貼！`);
             } else {
-                const reward = 100 + Math.floor(Math.random() * 180);
-                player.cash += reward;
-                addLog(`👨‍🏫 導師傳授了關鍵策略，幫你爭取到 $${reward} 政府補貼！`);
+                addLog(`👨‍🏫 導師的建議不適用於當前情況，諮詢費 $${cost} 付諸流水。`);
             }
         }
+        // 無論成敗，啟動3分鐘冷卻
+        player.npcCooldown = 180;
+        addLog(`⏳ 你感到需要時間消化建議，3分鐘內無法再次諮詢。`);
         updateUI();
     }
 
@@ -584,7 +598,6 @@
         const logDiv = document.getElementById('logContent');
         logDiv.innerHTML = `<p>${m}</p>` + logDiv.innerHTML;
         if (logDiv.children.length > 15) logDiv.lastChild.remove();
-        // 同時更新跑馬燈（可選）
         const ticker = document.getElementById('tickerText');
         if (ticker) ticker.innerText = m;
     }
