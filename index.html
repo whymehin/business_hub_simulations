@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>🏙️ BH City - 商業模擬 3.3</title>
+    <title>🏙️ BH City - 商業模擬 3.3 </title>
     <style>
         * { box-sizing: border-box; user-select: none; touch-action: manipulation; }
         body {
@@ -175,11 +175,10 @@
         type: null,
         isOpened: false,
         upgradeLevel: 0,
-        jobCooldown: 0,          // 打工冷卻秒數 (開業前後共用)
-        npcCooldown: 0,          // NPC 互動冷卻 (3分鐘)
+        jobCooldown: 0,          // 打工冷卻秒數
+        npcCooldown: 0,          // NPC 互動冷卻
         settleCooldown: 0,
         marketModifier: 1.0,
-        // 開業前專用的三個任務完成標記
         preOpenTasks: { level1: false, level2: false, level3: false },
         strategies: { ads: false, promo: false },
         activeBoost: 0,
@@ -204,7 +203,7 @@
         }
         if (timerInterval) clearInterval(timerInterval);
         timerInterval = setInterval(tick, 1000);
-        setInterval(autoEvent, 600000); // 每10分鐘隨機事件
+        setInterval(autoEvent, 600000);
     }
 
     function tick() {
@@ -213,7 +212,18 @@
             let needUpdate = false;
             if (player.jobCooldown > 0) {
                 player.jobCooldown--;
-                if (player.jobCooldown === 0) needUpdate = true;
+                if (player.jobCooldown === 0) {
+                    needUpdate = true;
+                    // 修復：未開業階段，冷卻結束後自動重置三個打工任務
+                    if (!player.isOpened) {
+                        const allDone = player.preOpenTasks.level1 && player.preOpenTasks.level2 && player.preOpenTasks.level3;
+                        if (allDone) {
+                            player.preOpenTasks = { level1: false, level2: false, level3: false };
+                            player.pendingQuiz = null;
+                            addLog("🔄 休息結束，打工任務已重置，你可以再次賺取創業資金。");
+                        }
+                    }
+                }
             }
             if (player.npcCooldown > 0) {
                 player.npcCooldown--;
@@ -535,7 +545,7 @@
         updateUI();
     }
 
-    // ======================= 市中心廣場 (新增冷卻與機率回報) =======================
+    // ======================= 市中心廣場 =======================
     function renderPlaza() {
         const p = document.getElementById('dynamicPanel');
         const canInteract = (player.npcCooldown <= 0);
@@ -565,30 +575,23 @@
             return;
         }
         player.cash -= cost;
-        let win = false;
-        let gain = 0;
         if (type === 'oracle') {
-            // 勝率30%，回報 = 成本 x 2 = 240
             if (Math.random() < 0.3) {
-                win = true;
-                gain = cost * 2;  // 240
+                const gain = cost * 2;
                 player.cash += gain;
                 addLog(`🔮 占卜師精準預測市場走勢！你獲得了 $${gain} 投資收益！`);
             } else {
                 addLog(`🔮 占卜師預測失準，你損失了 $${cost} 諮詢費，沒有得到任何回報。`);
             }
         } else if (type === 'mentor') {
-            // 勝率50%，回報 = 成本 x 1.8 = 144 (取整)
             if (Math.random() < 0.5) {
-                win = true;
-                gain = Math.round(cost * 1.8); // 144
+                const gain = Math.round(cost * 1.8);
                 player.cash += gain;
                 addLog(`👨‍🏫 導師傳授了關鍵策略，幫你爭取到 $${gain} 政府補貼！`);
             } else {
                 addLog(`👨‍🏫 導師的建議不適用於當前情況，諮詢費 $${cost} 付諸流水。`);
             }
         }
-        // 無論成敗，啟動3分鐘冷卻
         player.npcCooldown = 180;
         addLog(`⏳ 你感到需要時間消化建議，3分鐘內無法再次諮詢。`);
         updateUI();
