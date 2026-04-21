@@ -545,11 +545,11 @@
             ${player.npcCooldown > 0 ? `<p class="npc-cooldown">⏳ 專家正在整理思緒，請 ${player.npcCooldown} 秒後再來。</p>` : ''}
             <div class="biz-card" onclick="if(${canInteract}) interactNPC('oracle')" style="${!canInteract ? 'opacity:0.5; pointer-events:none;' : ''}">
                 <strong>🔮 市場占卜師 ($120)</strong><br>
-                <small>30%機率獲得雙倍回報，否則一無所獲</small>
+                <small>有機率獲得雙倍回報，否則一無所獲</small>
             </div>
             <div class="biz-card" onclick="if(${canInteract}) interactNPC('mentor')" style="${!canInteract ? 'opacity:0.5; pointer-events:none;' : ''}">
                 <strong>👨‍🏫 經營導師 ($80)</strong><br>
-                <small>50%機率獲得180%回報，否則一無所獲</small>
+                <small>有機率獲得高額回報，否則一無所獲</small>
             </div>
         `;
     }
